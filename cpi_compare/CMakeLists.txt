@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp tf pcl_ros std_msgs geometry_msgs
 
 # Include libraries
 find_package(PCL REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system filesystem thread date_time)
+find_package(Boost REQUIRED COMPONENTS system filesystem thread date_time timer)
 find_package(GTSAM REQUIRED) # source: https://bitbucket.org/gtborg/gtsam/
 find_package(MKL REQUIRED) # intel MKL library
 
@@ -21,18 +21,19 @@ catkin_package(
     INCLUDE_DIRS src
 )
 
-# Try to compile with c++11
-# http://stackoverflow.com/a/25836953
+# Try to compile with c++17
+# old c++11: http://stackoverflow.com/a/25836953
 include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
-if(COMPILER_SUPPORTS_CXX11)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-elseif(COMPILER_SUPPORTS_CXX0X)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-else()
-    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
-endif()
+CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
+if (COMPILER_SUPPORTS_CXX17)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+    add_compile_definitions(COMPILEDWITHC17=1)
+    set(COMPILEDWITHC17 1)
+    message(STATUS "Using c++17")
+else ()
+    message(FATAL_ERROR "The complier ${CMAKE_CXX_COMPILER} has no C++17 suuport.")
+endif ()
 
 # Enable compile optimizations
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-signed-zeros -fno-math-errno -funroll-loops")

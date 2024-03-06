@@ -31,6 +31,7 @@
 #include <sstream>
 #include <unistd.h>
 
+#include <boost/thread.hpp>
 #include <ros/ros.h>
 #include <tf/tf.h>
 #include <nav_msgs/Path.h>
