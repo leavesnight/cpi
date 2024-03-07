@@ -45,7 +45,8 @@ gtsam::Vector InvUVFactor::evaluateError(const JPLNavState& state_i, const JPLNa
     Matrix3 R_GtoA = quat_2_Rot(q_GtoA);
     Vector3 p_AinG = state_j.p();
 
-    Vector3 p_FinG_inv = state_k.vector();
+    //Vector3 p_FinG_inv = state_k.vector();
+    Vector3 p_FinG_inv = state_k;
 
     //================================================================================
     //================================================================================

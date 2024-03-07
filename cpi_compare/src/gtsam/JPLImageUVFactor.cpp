@@ -39,7 +39,8 @@ gtsam::Vector JPLImageUVFactor::evaluateError(const JPLNavState& state_i, const 
     // Separate our variables from our states
     JPLQuaternion q_GtoI = state_i.q();
     Vector3 p_IinG = state_i.p();
-    Vector3 p_FinG = state_j.vector();
+    //Vector3 p_FinG = state_j.vector();
+    Vector3 p_FinG = state_j;
 
     //================================================================================
     //================================================================================

@@ -46,12 +46,18 @@ Make sure you build with the manifold version of the GTSAM preintegration, you w
 This version is the original Forster et al. [[3]](http://www.roboticsproceedings.org/rss11/p06.pdf) RSS version.
 GTSAM defaults to a tangent space preintegration method.
 Note that the GTSAM discrete method was tested using the master branch at commit c21186c6212798e665da6b5015296713ddfe8c1d.
+
+For VIEO_SLAM, GTSAM at 4.2.0 or 4f66a491ffc83cf092d0d818b11dc35135521612.
 ```cmd
 git clone https://bitbucket.org/gtborg/gtsam/
 cd gtsam
 mkdir build
 cd build
-cmake -DGTSAM_TANGENT_PREINTEGRATION=OFF -DGTSAM_WITH_EIGEN_MKL=OFF ..
+#cpi:
+cmake -DGTSAM_TANGENT_PREINTEGRATION=OFF ..
+#VIEO_SLAM: with MKL too slow; echo for lacking libmetis-gtsam.so; march=native for EIGEN_MAX_ALIGN_BYTES not same causing double free segment fault
+echo "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu/" >> ~/.bashrc
+cmake -DGTSAM_TANGENT_PREINTEGRATION=OFF -DGTSAM_WITH_EIGEN_MKL=OFF -DGTSAM_BUILD_WITH_MARCH_NATIVE=ON ..
 sudo make -j6 install
 ```
 

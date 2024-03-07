@@ -37,7 +37,8 @@ gtsam::Vector InvAnchorFactor::evaluateError(const Point3& state_i, boost::optio
 
 
     // Separate our variables from our states
-    Vector3 p_FinG_inv = state_i.vector();
+    //Vector3 p_FinG_inv = state_i.vector();
+    Vector3 p_FinG_inv = state_i;
 
     //================================================================================
     //================================================================================
