@@ -38,6 +38,8 @@ sudo sh -c 'echo deb https://apt.repos.intel.com/tbb all main > /etc/apt/sources
 sudo apt-get update
 sudo apt-get install intel-mkl-2018.1-038
 sudo apt-get install intel-tbb-2018.0-033
+#notice we could echo "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/opt/intel/compilers_and_libraries_2018.1.163/linux/mkl/lib/intel64_lin/:/opt/intel/compilers_and_libraries_2018.0.128/linux/tbb/lib/intel64_lin/gcc4.7/" >> ~/.bashrc
+#and then source ~/.bashrc then run the later tests; but it is very slow due to gtsam with MKL=ON
 ```
 
 Make sure you build with the manifold version of the GTSAM preintegration, you will get errors otherwise.
