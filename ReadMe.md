@@ -51,7 +51,7 @@ git clone https://bitbucket.org/gtborg/gtsam/
 cd gtsam
 mkdir build
 cd build
-cmake -DGTSAM_TANGENT_PREINTEGRATION=OFF ..
+cmake -DGTSAM_TANGENT_PREINTEGRATION=OFF -DGTSAM_WITH_EIGEN_MKL=OFF ..
 sudo make -j6 install
 ```
 
