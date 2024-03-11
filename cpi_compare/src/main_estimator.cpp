@@ -67,12 +67,18 @@ void publish_FeatureCloud(double timestamp);
 ros::Publisher pubFeatureCloudsv1;
 ros::Publisher pubFeatureCloudsv2;
 ros::Publisher pubFeatureCloudsFORSTER;
+ros::Publisher pubFeatureCloudsGCPLPI;
+ros::Publisher pubFeatureCloudsLCPLPI2;
 ros::Publisher pubPathMODEL1;
 ros::Publisher pubPathMODEL2;
 ros::Publisher pubPathFORSTER;
+ros::Publisher pubPathGCPLPI;
+ros::Publisher pubPathLCPLPI2;
 ros::Publisher pubPoseIMUMODEL1;
 ros::Publisher pubPoseIMUMODEL2;
 ros::Publisher pubPoseIMUFORSTER;
+ros::Publisher pubPoseIMUGCPLPI;
+ros::Publisher pubPoseIMULCPLPI2;
 ros::Subscriber subUVMeas;
 ros::Subscriber subIMUMeas;
 ros::Subscriber subPOSETrue;
@@ -87,6 +93,8 @@ unsigned int poses_seq = 0;
 vector<geometry_msgs::PoseStamped> poses_estMODEL1;
 vector<geometry_msgs::PoseStamped> poses_estMODEL2;
 vector<geometry_msgs::PoseStamped> poses_estFORSTER;
+vector<geometry_msgs::PoseStamped> poses_estGCPLPI;
+vector<geometry_msgs::PoseStamped> poses_estLCPLPI2;
 
 
 int main(int argc, char** argv)
@@ -125,12 +133,15 @@ int main(int argc, char** argv)
     pubFeatureCloudsv1.shutdown();
     pubFeatureCloudsv2.shutdown();
     pubFeatureCloudsFORSTER.shutdown();
+    pubFeatureCloudsGCPLPI.shutdown(), pubFeatureCloudsLCPLPI2.shutdown();
     pubPathMODEL1.shutdown();
     pubPathMODEL2.shutdown();
     pubPathFORSTER.shutdown();
+    pubPathGCPLPI.shutdown(), pubPathLCPLPI2.shutdown();
     pubPoseIMUMODEL1.shutdown();
     pubPoseIMUMODEL2.shutdown();
     pubPoseIMUFORSTER.shutdown();
+    pubPoseIMUGCPLPI.shutdown(), pubPoseIMULCPLPI2.shutdown();
     subPOSETrue.shutdown();
     subIMUMeas.shutdown();
     subUVMeas.shutdown();
@@ -236,7 +247,6 @@ void setup_config(ros::NodeHandle& nh, Config* config) {
  * \brief This performs the setup for all the ROS subscriber and publishers needed
  */
 void setup_subpub(ros::NodeHandle& nh) {
-
     // Point cloud visualization
     pubFeatureCloudsv1 = nh.advertise<sensor_msgs::PointCloud2>("cpi_compare/feature_cloudv1", 2);
     ROS_INFO("Publishing: %s", pubFeatureCloudsv1.getTopic().c_str());
@@ -244,6 +254,10 @@ void setup_subpub(ros::NodeHandle& nh) {
     ROS_INFO("Publishing: %s", pubFeatureCloudsv2.getTopic().c_str());
     pubFeatureCloudsFORSTER = nh.advertise<sensor_msgs::PointCloud2>("cpi_compare/feature_cloud_forster", 2);
     ROS_INFO("Publishing: %s", pubFeatureCloudsFORSTER.getTopic().c_str());
+    pubFeatureCloudsGCPLPI = nh.advertise<sensor_msgs::PointCloud2>("cpi_compare/feature_cloud_gcplpi", 2);
+    ROS_INFO("Publishing: %s", pubFeatureCloudsGCPLPI.getTopic().c_str());
+    pubFeatureCloudsLCPLPI2 = nh.advertise<sensor_msgs::PointCloud2>("cpi_compare/feature_cloud_lcplpi2", 2);
+    ROS_INFO("Publishing: %s", pubFeatureCloudsLCPLPI2.getTopic().c_str());
 
     // Path visualization
     pubPathMODEL1 = nh.advertise<nav_msgs::Path>("cpi_compare/path_imu_cpi1", 2);
@@ -252,6 +266,10 @@ void setup_subpub(ros::NodeHandle& nh) {
     ROS_INFO("Publishing: %s", pubPathMODEL2.getTopic().c_str());
     pubPathFORSTER = nh.advertise<nav_msgs::Path>("cpi_compare/path_imu_forster", 2);
     ROS_INFO("Publishing: %s", pubPathFORSTER.getTopic().c_str());
+    pubPathGCPLPI = nh.advertise<nav_msgs::Path>("cpi_compare/path_imu_gcplpi", 2);
+    ROS_INFO("Publishing: %s", pubPathGCPLPI.getTopic().c_str());
+    pubPathLCPLPI2 = nh.advertise<nav_msgs::Path>("cpi_compare/path_imu_lcplpi2", 2);
+    ROS_INFO("Publishing: %s", pubPathLCPLPI2.getTopic().c_str());
 
     // IMU pose visualization
     pubPoseIMUMODEL1 = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("cpi_compare/pose_imu_cpi1", 2);
@@ -260,6 +278,10 @@ void setup_subpub(ros::NodeHandle& nh) {
     ROS_INFO("Publishing: %s", pubPoseIMUMODEL2.getTopic().c_str());
     pubPoseIMUFORSTER = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("cpi_compare/pose_imu_forster", 2);
     ROS_INFO("Publishing: %s", pubPoseIMUFORSTER.getTopic().c_str());
+    pubPoseIMUGCPLPI = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("cpi_compare/pose_imu_gcplpi", 2);
+    ROS_INFO("Publishing: %s", pubPoseIMUGCPLPI.getTopic().c_str());
+    pubPoseIMULCPLPI2 = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("cpi_compare/pose_imu_lcplpi2", 2);
+    ROS_INFO("Publishing: %s", pubPoseIMULCPLPI2.getTopic().c_str());
 
     // Subscribe to our true pose measurements
     //subPOSETrue = nh.subscribe("cpi_compare/truepose_imu", 2000, handle_measurement_pose);
@@ -272,7 +294,6 @@ void setup_subpub(ros::NodeHandle& nh) {
     // Subscribe to the uv measurements
     //subUVMeas = nh.subscribe("cpi_compare/data_uv", 500, handle_measurement_uv);
     //ROS_INFO("Subscribing: %s", subUVMeas.getTopic().c_str());
-
 }
 
 
@@ -375,6 +396,12 @@ void handle_measurement_uv(cpi_comm::CameraMeasurement::Ptr msg) {
     // FORSTER DISCRETE
     state = graphsolver->getcurrentstateFORSTER();
     publish_JPLstate(msg->header.stamp.toSec(),state,covariance,pubPathFORSTER,pubPoseIMUFORSTER,poses_estFORSTER);
+
+    // GCPLPI
+    state = graphsolver->getcurrentstateGCPLPI();
+    publish_JPLstate(msg->header.stamp.toSec(),state,covariance,pubPathGCPLPI,pubPoseIMUGCPLPI,poses_estGCPLPI);
+    state = graphsolver->getcurrentstateLCPLPI2();
+    publish_JPLstate(msg->header.stamp.toSec(),state,covariance,pubPathLCPLPI2,pubPoseIMULCPLPI2,poses_estLCPLPI2);
 
     // Publish our feature cloud
     publish_FeatureCloud(msg->header.stamp.toSec());
@@ -534,4 +561,33 @@ void publish_FeatureCloud(double timestamp) {
     msgOut3.header.stamp = ros::Time(timestamp);
     pubFeatureCloudsFORSTER.publish(msgOut3);
 
+    // Publish the downstampled cloud
+    std::vector<Eigen::Vector3d> points4 = graphsolver->getcurrentfeaturesGCPLPI();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud4(new pcl::PointCloud <pcl::PointXYZ>);
+    for(size_t i=0; i<points2.size(); i++) {
+      pcl::PointXYZ pt;
+      pt.x = points3.at(i)(0);
+      pt.y = points3.at(i)(1);
+      pt.z = points3.at(i)(2);
+      cloud4->push_back(pt);
+    }
+    sensor_msgs::PointCloud2 msgOut4;
+    pcl::toROSMsg(*cloud4, msgOut4);
+    msgOut4.header.frame_id = "global";
+    msgOut4.header.stamp = ros::Time(timestamp);
+    pubFeatureCloudsGCPLPI.publish(msgOut4);
+    std::vector<Eigen::Vector3d> points5 = graphsolver->getcurrentfeaturesLCPLPI2();
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud5(new pcl::PointCloud <pcl::PointXYZ>);
+    for(size_t i=0; i<points2.size(); i++) {
+      pcl::PointXYZ pt;
+      pt.x = points3.at(i)(0);
+      pt.y = points3.at(i)(1);
+      pt.z = points3.at(i)(2);
+      cloud5->push_back(pt);
+    }
+    sensor_msgs::PointCloud2 msgOut5;
+    pcl::toROSMsg(*cloud5, msgOut5);
+    msgOut5.header.frame_id = "global";
+    msgOut5.header.stamp = ros::Time(timestamp);
+    pubFeatureCloudsLCPLPI2.publish(msgOut5);
 }

@@ -64,6 +64,17 @@
         <param name="invert_pose"   value="false" />
         <param name="topic_type"    value="PoseWithCovarianceStamped" type="str" />
     </node>
+    <!-- CPLPI -->
+    <node pkg="posemsg_to_file" type="posemsg_to_file_node" name="pose2file_06_$(arg directory)" clear_params="true" output="log">
+        <param name="topic"         value="/$(arg directory)/cpi_compare/pose_imu_gcplpi" type="str" />
+        <param name="invert_pose"   value="false" />
+        <param name="topic_type"    value="PoseWithCovarianceStamped" type="str" />
+    </node>
+    <node pkg="posemsg_to_file" type="posemsg_to_file_node" name="pose2file_07_$(arg directory)" clear_params="true" output="log">
+        <param name="topic"         value="/$(arg directory)/cpi_compare/pose_imu_lcplpi2" type="str" />
+        <param name="invert_pose"   value="false" />
+        <param name="topic_type"    value="PoseWithCovarianceStamped" type="str" />
+    </node>
 
 
 </launch>

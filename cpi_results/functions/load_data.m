@@ -42,7 +42,7 @@ path_gt = 'data_gt/';
 
 stop_num = 430;
 %stop_num = 250;
-data_n = {'MODEL-1','MODEL-2','DISCRETE','GT'};
+data_n = {'CPI-1','CPI-2','DISCRETE','GCPLPI','LCPLPI-2','GT'};
 
 
 % debug info
@@ -80,7 +80,23 @@ for file = dir([path_main,path_sub,'*.txt'])'
     end
 end
 
-
+% CPLPI
+disp('GCPLPI')
+for file = dir([path_main,path_sub,'*.txt'])'
+    filesplit = strsplit(file.name,'_');
+    if any(strcmp(filesplit,'gcplpi.txt'))
+        disp(file.name)
+        data_e{length(data_e)+1} = importdata([path_main,path_sub,file.name],delimiterIn,headerlinesIn);
+    end
+end
+disp('LCPLPI v2')
+for file = dir([path_main,path_sub,'*.txt'])'
+    filesplit = strsplit(file.name,'_');
+    if any(strcmp(filesplit,'lcplpi2.txt'))
+        disp(file.name)
+        data_e{length(data_e)+1} = importdata([path_main,path_sub,file.name],delimiterIn,headerlinesIn);
+    end
+end
 
 % ===================================================================
 % GROUNDTRUTH TRAJECTORY

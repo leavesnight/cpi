@@ -51,18 +51,20 @@
 
 #include "gtsam/ImuFactorCPIv1.h"
 #include "gtsam/ImuFactorCPIv2.h"
-#include "gtsam/JPLNavState.h"
-#include "gtsam/JPLNavStatePrior.h"
-#include "gtsam/JPLImageUVFactor.h"
+#include "gtsam/ImuFactorCPLPI.h"
 #include "gtsam/InvAnchorFactor.h"
 #include "gtsam/InvUVFactor.h"
+#include "gtsam/JPLImageUVFactor.h"
+#include "gtsam/JPLNavState.h"
+#include "gtsam/JPLNavStatePrior.h"
 #include "solvers/FeatureInitializer.h"
-#include "utils/quat_ops.h"
 #include "utils/Config.h"
 #include "utils/feature.h"
+#include "utils/quat_ops.h"
 
 #include "cpi/CpiV1.h"
 #include "cpi/CpiV2.h"
+#include "cpi/CPLPI.h"
 
 using namespace std;
 using namespace gtsam;
@@ -86,16 +88,21 @@ public:
         this->graphMODEL1 = new gtsam::NonlinearFactorGraph();
         this->graphMODEL2 = new gtsam::NonlinearFactorGraph();
         this->graphFORSTER = new gtsam::NonlinearFactorGraph();
+        this->graphGCPLPI = new gtsam::NonlinearFactorGraph();
+        this->graphLCPLPI2 = new gtsam::NonlinearFactorGraph();
         this->graph_newMODEL1 = new gtsam::NonlinearFactorGraph();
         this->graph_newMODEL2 = new gtsam::NonlinearFactorGraph();
         this->graph_newFORSTER = new gtsam::NonlinearFactorGraph();
+        this->graph_newGCPLPI = new gtsam::NonlinearFactorGraph();
+        this->graph_newLCPLPI2 = new gtsam::NonlinearFactorGraph();
         // Fixed lag smoothers BATCH
         gtsam::LevenbergMarquardtParams params;
         params.setVerbosity("ERROR"); // SILENT, TERMINATION, ERROR, VALUES, DELTA, LINEAR
         this->smootherBatchMODEL1 = new BatchFixedLagSmoother(config->lagSmootherAmount,params,true);
         this->smootherBatchMODEL2 = new BatchFixedLagSmoother(config->lagSmootherAmount,params,true);
         this->smootherBatchFORSTER = new BatchFixedLagSmoother(config->lagSmootherAmount,params,true);
-
+        this->smootherBatchGCPLPI = new BatchFixedLagSmoother(config->lagSmootherAmount,params,true);
+        this->smootherBatchLCPLPI2 = new BatchFixedLagSmoother(config->lagSmootherAmount,params,true);
     }
 
     /// Function that takes in IMU measurements for use in preintegration measurements
@@ -118,124 +125,77 @@ public:
 
     /// This function returns the current nav state, return origin if we have not initialized yet
     JPLNavState getcurrentstateMODEL1() {
-        if(values_initialMODEL1.empty())
-            return JPLNavState();
-        return values_initialMODEL1.at<JPLNavState>(X(ct_state));
+      return getcurrentstate(values_initialMODEL1);
     }
-
-    /// This function returns the current nav state, return origin if we have not initialized yet
     JPLNavState getcurrentstateMODEL2() {
-        if(values_initialMODEL2.empty())
-            return JPLNavState();
-        return values_initialMODEL2.at<JPLNavState>(X(ct_state));
+      return getcurrentstate(values_initialMODEL2);
     }
-
-    /// This function returns the current nav state, return origin if we have not initialized yet
     JPLNavState getcurrentstateFORSTER() {
-        if(values_initialFORSTER.empty())
-            return JPLNavState();
-        return values_initialFORSTER.at<JPLNavState>(X(ct_state));
+      return getcurrentstate(values_initialFORSTER);
+    }
+    JPLNavState getcurrentstateGCPLPI() {
+      return getcurrentstate(values_initialGCPLPI);
+    }
+    JPLNavState getcurrentstateLCPLPI2() {
+      return getcurrentstate(values_initialLCPLPI2);
     }
 
     /// Returns the currently tracked features
     std::vector<Eigen::Vector3d> getcurrentfeaturesMODEL1() {
-        // Return if we do not have any nodes yet
-        if(values_initialMODEL1.empty()) {
-            return std::vector<Eigen::Vector3d>();
-        }
-        // Our vector of points in the global
-        std::vector<Eigen::Vector3d> features;
-        // Else loop through the features and return them
-        for(size_t i=1; i<= ct_features; i++) {
-            // Ensure valid feature
-            if(!values_initialMODEL1.exists(F(i)))
-                continue;
-            // If not doing inverse depth, just directly add the feature
-            if(!config->useInverseDepth) {
-                features.push_back(values_initialMODEL1.at<Point3>(F(i)));
-                continue;
-            }
-            // If inverse depth, need to transform into global
-            if(!values_initialMODEL1.exists(X(measurement_anchor_lookup[i])))
-                continue;
-            // Transform back into the global frame!
-            JPLNavState state = values_initialMODEL1.at<JPLNavState>(X(measurement_anchor_lookup[i]));
-            Eigen::Vector3d abr = values_initialMODEL1.at<Point3>(F(i));
-            Eigen::Vector3d p_FinA;
-            p_FinA << abr(0)/abr(2), abr(1)/abr(2), 1/abr(2);
-            Eigen::Vector3d p_FinG = quat_2_Rot(state.q()).transpose()*p_FinA+state.p();
-            features.push_back(p_FinG);
-        }
-        return features;
+      return getcurrentfeatures(values_initialMODEL1);
     }
-
-    /// Returns the currently tracked features
     std::vector<Eigen::Vector3d> getcurrentfeaturesMODEL2() {
-        // Return if we do not have any nodes yet
-        if(values_initialMODEL2.empty()) {
-            return std::vector<Eigen::Vector3d>();
-        }
-        // Our vector of points in the global
-        std::vector<Eigen::Vector3d> features;
-        // Else loop through the features and return them
-        for(size_t i=1; i<= ct_features; i++) {
-            // Ensure valid feature
-            if(!values_initialMODEL2.exists(F(i)))
-                continue;
-            // If not doing inverse depth, just directly add the feature
-            if(!config->useInverseDepth) {
-                features.push_back(values_initialMODEL2.at<Point3>(F(i)));
-                continue;
-            }
-            // If inverse depth, need to transform into global
-            if(!values_initialMODEL2.exists(X(measurement_anchor_lookup[i])))
-                continue;
-            // Transform back into the global frame!
-            JPLNavState state = values_initialMODEL2.at<JPLNavState>(X(measurement_anchor_lookup[i]));
-            Eigen::Vector3d abr = values_initialMODEL2.at<Point3>(F(i));
-            Eigen::Vector3d p_FinA;
-            p_FinA << abr(0)/abr(2), abr(1)/abr(2), 1/abr(2);
-            Eigen::Vector3d p_FinG = quat_2_Rot(state.q()).transpose()*p_FinA+state.p();
-            features.push_back(p_FinG);
-        }
-        return features;
+      return getcurrentfeatures(values_initialMODEL2);
     }
-
-    /// Returns the currently tracked features
     std::vector<Eigen::Vector3d> getcurrentfeaturesFORSTER() {
-        // Return if we do not have any nodes yet
-        if(values_initialFORSTER.empty()) {
-            return std::vector<Eigen::Vector3d>();
-        }
-        // Our vector of points in the global
-        std::vector<Eigen::Vector3d> features;
-        // Else loop through the features and return them
-        for(size_t i=1; i<= ct_features; i++) {
-            // Ensure valid feature
-            if(!values_initialFORSTER.exists(F(i)))
-                continue;
-            // If not doing inverse depth, just directly add the feature
-            if(!config->useInverseDepth) {
-                features.push_back(values_initialFORSTER.at<Point3>(F(i)));
-                continue;
-            }
-            // If inverse depth, need to transform into global
-            if(!values_initialFORSTER.exists(X(measurement_anchor_lookup[i])))
-                continue;
-            // Transform back into the global frame!
-            JPLNavState state = values_initialFORSTER.at<JPLNavState>(X(measurement_anchor_lookup[i]));
-            Eigen::Vector3d abr = values_initialFORSTER.at<Point3>(F(i));
-            Eigen::Vector3d p_FinA;
-            p_FinA << abr(0)/abr(2), abr(1)/abr(2), 1/abr(2);
-            Eigen::Vector3d p_FinG = quat_2_Rot(state.q()).transpose()*p_FinA+state.p();
-            features.push_back(p_FinG);
-        }
-        return features;
+      return getcurrentfeatures(values_initialFORSTER);
     }
-
-
+    std::vector<Eigen::Vector3d> getcurrentfeaturesGCPLPI() {
+      return getcurrentfeatures(values_initialGCPLPI);
+    }
+    std::vector<Eigen::Vector3d> getcurrentfeaturesLCPLPI2() {
+      return getcurrentfeatures(values_initialLCPLPI2);
+    }
 
 private:
+
+  JPLNavState getcurrentstate(const gtsam::Values &values_initial) {
+    if (values_initial.empty())
+      return JPLNavState();
+    return values_initial.at<JPLNavState>(X(ct_state));
+  }
+  std::vector<Eigen::Vector3d> getcurrentfeatures(const gtsam::Values &values_initial) {
+    // Return if we do not have any nodes yet
+    if (values_initial.empty()) {
+      return std::vector<Eigen::Vector3d>();
+    }
+    // Our vector of points in the global
+    std::vector<Eigen::Vector3d> features;
+    // Else loop through the features and return them
+    for (size_t i = 1; i <= ct_features; i++) {
+      // Ensure valid feature
+      if (!values_initial.exists(F(i)))
+        continue;
+      // If not doing inverse depth, just directly add the feature
+      if (!config->useInverseDepth) {
+        features.push_back(values_initial.at<Point3>(F(i)));
+        continue;
+      }
+      // If inverse depth, need to transform into global
+      if (!values_initial.exists(X(measurement_anchor_lookup[i])))
+        continue;
+      // Transform back into the global frame!
+      JPLNavState state =
+          values_initial.at<JPLNavState>(X(measurement_anchor_lookup[i]));
+      Eigen::Vector3d abr = values_initial.at<Point3>(F(i));
+      Eigen::Vector3d p_FinA;
+      p_FinA << abr(0) / abr(2), abr(1) / abr(2), 1 / abr(2);
+      Eigen::Vector3d p_FinG =
+          quat_2_Rot(state.q()).transpose() * p_FinA + state.p();
+      features.push_back(p_FinG);
+    }
+    return features;
+  }
 
     /// Function which will try to initalize our graph using the current IMU measurements
     void trytoinitalize(double timestamp);
@@ -243,6 +203,7 @@ private:
     /// Function that will compound our IMU measurements up to the given timestep
     ImuFactorCPIv1 createimufactor_cpi_v1(double updatetime, gtsam::Values& values_initial);
     ImuFactorCPIv2 createimufactor_cpi_v2(double updatetime, gtsam::Values& values_initial);
+    ImuFactorCPLPI createimufactor_cplpi(double updatetime, gtsam::Values& values_initial);
 
     /// Function that will compound the GTSAM preintegrator to get discrete preintegration measurement
     ImuFactorCPIv1 createimufactor_discrete(double updatetime, gtsam::Values& values_initial);
@@ -250,6 +211,7 @@ private:
     /// Function will get the predicted JPL Navigation State based on this generated measurement
     JPLNavState getpredictedstate_v1(ImuFactorCPIv1& imuFactor, gtsam::Values& values_initial);
     JPLNavState getpredictedstate_v2(ImuFactorCPIv2& imuFactor, gtsam::Values& values_initial);
+    JPLNavState getpredictedstate_cplpi(ImuFactorCPLPI& imuFactor, gtsam::Values& values_initial);
 
     /// Column swap
     void swapcovariance(Eigen::Matrix<double,15,15>& covariance, int coli, int colj);
@@ -272,21 +234,29 @@ private:
     gtsam::NonlinearFactorGraph* graphMODEL1;
     gtsam::NonlinearFactorGraph* graphMODEL2;
     gtsam::NonlinearFactorGraph* graphFORSTER;
+    gtsam::NonlinearFactorGraph* graphGCPLPI;
+    gtsam::NonlinearFactorGraph* graphLCPLPI2;
 
     // New factors that have not been optimized yet
     gtsam::NonlinearFactorGraph* graph_newMODEL1;
     gtsam::NonlinearFactorGraph* graph_newMODEL2;
     gtsam::NonlinearFactorGraph* graph_newFORSTER;
+    gtsam::NonlinearFactorGraph* graph_newGCPLPI;
+    gtsam::NonlinearFactorGraph* graph_newLCPLPI2;
 
     // Fixed lag smothers objects
     BatchFixedLagSmoother* smootherBatchMODEL1;
     BatchFixedLagSmoother* smootherBatchMODEL2;
     BatchFixedLagSmoother* smootherBatchFORSTER;
+    BatchFixedLagSmoother* smootherBatchGCPLPI;
+    BatchFixedLagSmoother* smootherBatchLCPLPI2;
 
     // Timestamps of the current nodes in our graph
     FixedLagSmoother::KeyTimestampMap newTimestampsMODEL1;
     FixedLagSmoother::KeyTimestampMap newTimestampsMODEL2;
     FixedLagSmoother::KeyTimestampMap newTimestampsFORSTER;
+    FixedLagSmoother::KeyTimestampMap newTimestampsGCPLPI;
+    FixedLagSmoother::KeyTimestampMap newTimestampsLCPLPI2;
 
     // Current ID of state and features
     size_t ct_state = 0;
@@ -296,11 +266,15 @@ private:
     gtsam::Values values_initialMODEL1;
     gtsam::Values values_initialMODEL2;
     gtsam::Values values_initialFORSTER;
+    gtsam::Values values_initialGCPLPI;
+    gtsam::Values values_initialLCPLPI2;
 
     // New nodes that have not been optimized
     gtsam::Values values_newMODEL1;
     gtsam::Values values_newMODEL2;
     gtsam::Values values_newFORSTER;
+    gtsam::Values values_newGCPLPI;
+    gtsam::Values values_newLCPLPI2;
 
     //==========================================================================
     // SYSTEM / HOUSEKEEPING VARIABLES

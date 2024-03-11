@@ -46,9 +46,11 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
             continue;
         }
         // Next check to see if this feature is in our queue
@@ -79,9 +81,11 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
             continue;
         }
         // Check to see if this feature is in our queue
@@ -110,6 +114,8 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
     FeatureInitializer initializerMODEL1(config, values_initialMODEL1, ct_state);
     FeatureInitializer initializerMODEL2(config, values_initialMODEL2, ct_state);
     FeatureInitializer initializerFORSTER(config, values_initialFORSTER, ct_state);
+    FeatureInitializer initializerGCPLPI(config, values_initialGCPLPI, ct_state);
+    FeatureInitializer initializerLCPLPI2(config, values_initialLCPLPI2, ct_state);
     int ct_successes = 0;
     int ct_failures = 0;
     // Lastly lets add all the features that have reached the
@@ -155,11 +161,19 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
         std::pair<int, feature> measurementMODEL2 = measurement;
         bool successFORSTER = initializerFORSTER.initialize_feature(measurement.second);
         std::pair<int, feature> measurementFORSTER = measurement;
+        bool successGCPLPI = initializerGCPLPI.initialize_feature(measurement.second);
+        std::pair<int, feature> measurementGCPLPI = measurement;
+        bool successLCPLPI2 = initializerLCPLPI2.initialize_feature(measurement.second);
+        std::pair<int, feature> measurementLCPLPI2 = measurement;
 
         // If not successful skip this feature
         if(!successMODEL1 || !successMODEL2 || !successFORSTER) {
             ct_failures++;
             continue;
+        }
+        if (!successGCPLPI || !successLCPLPI2) {
+          ++ct_failures;
+          continue;
         }
 
         // Ensure we have at least one left feature (we pick this to be our anchor)
@@ -177,14 +191,20 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
         values_newMODEL1.insert(F(ct_features), gtsam::Point3(measurementMODEL1.second.pos_FinG));
         values_newMODEL2.insert(F(ct_features), gtsam::Point3(measurementMODEL2.second.pos_FinG));
         values_newFORSTER.insert(F(ct_features), gtsam::Point3(measurementFORSTER.second.pos_FinG));
+        values_newGCPLPI.insert(F(ct_features), gtsam::Point3(measurementGCPLPI.second.pos_FinG));
+        values_newLCPLPI2.insert(F(ct_features), gtsam::Point3(measurementLCPLPI2.second.pos_FinG));
         values_initialMODEL1.insert(F(ct_features), gtsam::Point3(measurementMODEL1.second.pos_FinG));
         values_initialMODEL2.insert(F(ct_features), gtsam::Point3(measurementMODEL2.second.pos_FinG));
         values_initialFORSTER.insert(F(ct_features), gtsam::Point3(measurementFORSTER.second.pos_FinG));
+        values_initialGCPLPI.insert(F(ct_features), gtsam::Point3(measurementGCPLPI.second.pos_FinG));
+        values_initialLCPLPI2.insert(F(ct_features), gtsam::Point3(measurementLCPLPI2.second.pos_FinG));
 
         // Append to our fix lag smoother timestamps
         newTimestampsMODEL1[F(ct_features)] = timestamp;
         newTimestampsMODEL2[F(ct_features)] = timestamp;
         newTimestampsFORSTER[F(ct_features)] = timestamp;
+        newTimestampsGCPLPI[F(ct_features)] = timestamp;
+        newTimestampsLCPLPI2[F(ct_features)] = timestamp;
 
         // Next lets add all LEFT factors (all graphs have the same measurements!!!)
         for(size_t j=0; j<measurementMODEL1.second.leftuv.size(); j++) {
@@ -193,9 +213,11 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
         }
 
         // Next lets add all RIGHT factors (all graphs have the same measurements!!!)
@@ -205,9 +227,11 @@ void GraphSolver::process_feat_normal(double timestamp, std::vector<uint> leftid
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
         }
 
         // Record our success
@@ -254,9 +278,11 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
             continue;
         }
         // Next check to see if this feature is in our queue
@@ -287,9 +313,11 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
             continue;
         }
         // Check to see if this feature is in our queue
@@ -318,6 +346,8 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
     FeatureInitializer initializerMODEL1(config, values_initialMODEL1, ct_state);
     FeatureInitializer initializerMODEL2(config, values_initialMODEL2, ct_state);
     FeatureInitializer initializerFORSTER(config, values_initialFORSTER, ct_state);
+    FeatureInitializer initializerGCPLPI(config, values_initialGCPLPI, ct_state);
+    FeatureInitializer initializerLCPLPI2(config, values_initialLCPLPI2, ct_state);
     int ct_successes = 0;
     int ct_failures = 0;
     // Lastly lets add all the features that have reached the
@@ -363,11 +393,19 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
         std::pair<int, feature> measurementMODEL2 = measurement;
         bool successFORSTER = initializerFORSTER.initialize_feature(measurement.second);
         std::pair<int, feature> measurementFORSTER = measurement;
+        bool successGCPLPI = initializerGCPLPI.initialize_feature(measurement.second);
+        std::pair<int, feature> measurementGCPLPI = measurement;
+        bool successLCPLPI2 = initializerLCPLPI2.initialize_feature(measurement.second);
+        std::pair<int, feature> measurementLCPLPI2 = measurement;
 
         // If not successful skip this feature
         if(!successMODEL1 || !successMODEL2 || !successFORSTER) {
             ct_failures++;
             continue;
+        }
+        if (!successGCPLPI || !successLCPLPI2) {
+          ++ct_failures;
+          continue;
         }
 
         // Ensure we have at least one left feature (we pick this to be our anchor)
@@ -390,14 +428,20 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
         values_newMODEL1.insert(F(ct_features), gtsam::Point3(measurementMODEL1.second.pos_FinA_inv));
         values_newMODEL2.insert(F(ct_features), gtsam::Point3(measurementMODEL2.second.pos_FinA_inv));
         values_newFORSTER.insert(F(ct_features), gtsam::Point3(measurementFORSTER.second.pos_FinA_inv));
+        values_newGCPLPI.insert(F(ct_features), gtsam::Point3(measurementGCPLPI.second.pos_FinA_inv));
+        values_newLCPLPI2.insert(F(ct_features), gtsam::Point3(measurementLCPLPI2.second.pos_FinA_inv));
         values_initialMODEL1.insert(F(ct_features), gtsam::Point3(measurementMODEL1.second.pos_FinA_inv));
         values_initialMODEL2.insert(F(ct_features), gtsam::Point3(measurementMODEL2.second.pos_FinA_inv));
         values_initialFORSTER.insert(F(ct_features), gtsam::Point3(measurementFORSTER.second.pos_FinA_inv));
+        values_initialGCPLPI.insert(F(ct_features), gtsam::Point3(measurementGCPLPI.second.pos_FinA_inv));
+        values_initialLCPLPI2.insert(F(ct_features), gtsam::Point3(measurementLCPLPI2.second.pos_FinA_inv));
 
         // Append to our fix lag smoother timestamps
         newTimestampsMODEL1[F(ct_features)] = timestamp;
         newTimestampsMODEL2[F(ct_features)] = timestamp;
         newTimestampsFORSTER[F(ct_features)] = timestamp;
+        newTimestampsGCPLPI[F(ct_features)] = timestamp;
+        newTimestampsLCPLPI2[F(ct_features)] = timestamp;
 
         // Insert our anchor measurements, note they are only a function of the feature!
         Eigen::Matrix<double,2,2> sqrtQA = config->sigma_camera_sq*Eigen::Matrix<double,2,2>::Identity();
@@ -405,16 +449,20 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
         graphMODEL1->add(factorL);
         graphMODEL2->add(factorL);
         graphFORSTER->add(factorL);
+        graphGCPLPI->add(factorL), graphLCPLPI2->add(factorL);
         graph_newMODEL1->add(factorL);
         graph_newMODEL2->add(factorL);
         graph_newFORSTER->add(factorL);
+        graph_newGCPLPI->add(factorL), graph_newLCPLPI2->add(factorL);
         InvAnchorFactor factorR(F(ct_features),sqrtQA,measurementMODEL1.second.rightuv.at(0),config->R_C1toI,config->p_IinC1,config->R_C0toI,config->p_IinC0);
         graphMODEL1->add(factorR);
         graphMODEL2->add(factorR);
         graphFORSTER->add(factorR);
+        graphGCPLPI->add(factorR), graphLCPLPI2->add(factorR);
         graph_newMODEL1->add(factorR);
         graph_newMODEL2->add(factorR);
         graph_newFORSTER->add(factorR);
+        graph_newGCPLPI->add(factorR), graph_newLCPLPI2->add(factorR);
 
         // Next lets add all LEFT factors (all graphs have the same measurements!!!)
         for(size_t j=1; j<measurementMODEL1.second.leftuv.size(); j++) {
@@ -423,9 +471,11 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
         }
 
         // Next lets add all RIGHT factors (all graphs have the same measurements!!!)
@@ -435,9 +485,11 @@ void GraphSolver::process_feat_inverse(double timestamp, std::vector<uint> lefti
             graphMODEL1->add(factor);
             graphMODEL2->add(factor);
             graphFORSTER->add(factor);
+            graphGCPLPI->add(factor), graphLCPLPI2->add(factor);
             graph_newMODEL1->add(factor);
             graph_newMODEL2->add(factor);
             graph_newFORSTER->add(factor);
+            graph_newGCPLPI->add(factor), graph_newLCPLPI2->add(factor);
         }
 
         // Record our success

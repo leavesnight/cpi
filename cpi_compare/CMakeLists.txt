@@ -84,6 +84,7 @@ add_executable(estimator
         src/gtsam/JPLNavStatePrior.cpp
         src/gtsam/ImuFactorCPIv1.cpp
         src/gtsam/ImuFactorCPIv2.cpp
+        src/gtsam/ImuFactorCPLPI.cpp
         src/gtsam/JPLImageUVFactor.cpp
         src/gtsam/InvAnchorFactor.cpp
         src/gtsam/InvUVFactor.cpp

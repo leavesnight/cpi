@@ -114,7 +114,7 @@ void GraphSolver::addmeasurement_uv(double timestamp, std::vector<uint> leftids,
         graph_newMODEL1->add(imuFactorMODEL1);
         graphMODEL1->add(imuFactorMODEL1);
 
-        // Model 1 CPI
+        // Model 2 CPI
         ImuFactorCPIv2 imuFactorMODEL2 = createimufactor_cpi_v2(timestamp, values_initialMODEL2);
         imu_times = imu_timestemp;
         imu_linaccs = imu_linaccstemp;
@@ -126,6 +126,21 @@ void GraphSolver::addmeasurement_uv(double timestamp, std::vector<uint> leftids,
         ImuFactorCPIv1 imuFactorFORSTER = createimufactor_discrete(timestamp, values_initialFORSTER);
         graph_newFORSTER->add(imuFactorFORSTER);
         graphFORSTER->add(imuFactorFORSTER);
+
+        // GCPLPI
+        imu_times = imu_timestemp;
+        imu_linaccs = imu_linaccstemp;
+        imu_angvel = imu_angveltemp;
+        ImuFactorCPLPI imuFactorGCPLPI = createimufactor_cplpi(timestamp, values_initialGCPLPI);
+        graph_newGCPLPI->add(imuFactorGCPLPI);
+        graphGCPLPI->add(imuFactorGCPLPI);
+        // LCPIPL2
+        imu_times = imu_timestemp;
+        imu_linaccs = imu_linaccstemp;
+        imu_angvel = imu_angveltemp;
+        ImuFactorCPLPI imuFactorLCPLPI2 = createimufactor_cplpi(timestamp, values_initialLCPLPI2);
+        graph_newLCPLPI2->add(imuFactorLCPLPI2);
+        graphLCPLPI2->add(imuFactorLCPLPI2);
 
         // Debug print
         //cout << "=======================================================" << endl;
@@ -145,6 +160,8 @@ void GraphSolver::addmeasurement_uv(double timestamp, std::vector<uint> leftids,
         JPLNavState newstateMODEL1 = getpredictedstate_v1(imuFactorMODEL1, values_initialMODEL1);
         JPLNavState newstateMODEL2 = getpredictedstate_v2(imuFactorMODEL2, values_initialMODEL2);
         JPLNavState newstateFORSTER = getpredictedstate_v1(imuFactorFORSTER, values_initialFORSTER);
+        JPLNavState newstateGCPLPI = getpredictedstate_cplpi(imuFactorGCPLPI, values_initialGCPLPI);
+        JPLNavState newstateLCPLPI2 = getpredictedstate_cplpi(imuFactorLCPLPI2, values_initialLCPLPI2);
 
         // Move node count forward in time
         ct_state++;
@@ -153,15 +170,20 @@ void GraphSolver::addmeasurement_uv(double timestamp, std::vector<uint> leftids,
         values_newMODEL1.insert(X(ct_state), newstateMODEL1);
         values_newMODEL2.insert(X(ct_state), newstateMODEL2);
         values_newFORSTER.insert(X(ct_state), newstateFORSTER);
+        values_newGCPLPI.insert(X(ct_state), newstateGCPLPI);
+        values_newLCPLPI2.insert(X(ct_state), newstateLCPLPI2);
         values_initialMODEL1.insert(X(ct_state), newstateMODEL1);
         values_initialMODEL2.insert(X(ct_state), newstateMODEL2);
         values_initialFORSTER.insert(X(ct_state), newstateFORSTER);
+        values_initialGCPLPI.insert(X(ct_state), newstateGCPLPI);
+        values_initialLCPLPI2.insert(X(ct_state), newstateLCPLPI2);
 
         // Append to our fix lag smoother timestamps
         newTimestampsMODEL1[X(ct_state)] = timestamp;
         newTimestampsMODEL2[X(ct_state)] = timestamp;
         newTimestampsFORSTER[X(ct_state)] = timestamp;
-
+        newTimestampsGCPLPI[X(ct_state)] = timestamp;
+        newTimestampsLCPLPI2[X(ct_state)] = timestamp;
     }
 
     // Assert our vectors are equal (note will need to remove top one eventually)
@@ -227,20 +249,41 @@ void GraphSolver::optimize() {
         exit(EXIT_FAILURE);
     }
 
+    // Perform smoothing update
+    try {
+      smootherBatchGCPLPI->update(*graph_newGCPLPI, values_newGCPLPI, newTimestampsGCPLPI);
+      values_initialGCPLPI = smootherBatchGCPLPI->calculateEstimate();
+    } catch(gtsam::IndeterminantLinearSystemException &e) {
+      ROS_ERROR("FORSTER gtsam indeterminate linear system exception!");
+      cerr << e.what() << endl;
+      exit(EXIT_FAILURE);
+    }
+    try {
+      smootherBatchLCPLPI2->update(*graph_newLCPLPI2, values_newLCPLPI2, newTimestampsLCPLPI2);
+      values_initialLCPLPI2 = smootherBatchLCPLPI2->calculateEstimate();
+    } catch(gtsam::IndeterminantLinearSystemException &e) {
+      ROS_ERROR("FORSTER gtsam indeterminate linear system exception!");
+      cerr << e.what() << endl;
+      exit(EXIT_FAILURE);
+    }
+
     // Remove the used up nodes
     values_newMODEL1.clear();
     values_newMODEL2.clear();
     values_newFORSTER.clear();
+    values_newGCPLPI.clear(), values_newLCPLPI2.clear();
 
     // Clear used timestamps
     newTimestampsMODEL1.clear();
     newTimestampsMODEL2.clear();
     newTimestampsFORSTER.clear();
+    newTimestampsGCPLPI.clear(), newTimestampsLCPLPI2.clear();
 
     // Remove the used up factors
     graph_newMODEL1->resize(0);
     graph_newMODEL2->resize(0);
     graph_newFORSTER->resize(0);
+    graph_newGCPLPI->resize(0), graph_newLCPLPI2->resize(0);
 
     // Debug print time
     boost::posix_time::ptime t2(boost::posix_time::microsec_clock::local_time());
@@ -294,6 +337,7 @@ void GraphSolver::trytoinitalize(double timestamp) {
 
     // Make x_axis perpendicular to z
     Eigen::Vector3d x_axis = e_1-z_axis*z_axis.transpose()*e_1;
+    // Dangerous if x_axis.norm() near 0
     x_axis= x_axis/x_axis.norm();
 
     // Get z from the cross product of these two
@@ -336,22 +380,32 @@ void GraphSolver::trytoinitalize(double timestamp) {
     graph_newMODEL1->add(priorfactor);
     graph_newMODEL2->add(priorfactor);
     graph_newFORSTER->add(priorfactor);
+    graph_newGCPLPI->add(priorfactor);
+    graph_newLCPLPI2->add(priorfactor);
     graphMODEL1->add(priorfactor);
     graphMODEL2->add(priorfactor);
     graphFORSTER->add(priorfactor);
+    graphGCPLPI->add(priorfactor);
+    graphLCPLPI2->add(priorfactor);
 
     // Add our initial state
     values_newMODEL1.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
     values_newMODEL2.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
     values_newFORSTER.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
+    values_newGCPLPI.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
+    values_newLCPLPI2.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
     values_initialMODEL1.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
     values_initialMODEL2.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
     values_initialFORSTER.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
+    values_initialGCPLPI.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
+    values_initialLCPLPI2.insert(X(ct_state), JPLNavState(q_GtoI, bg, v_IinG, ba, p_IinG));
 
     // Append to our fix lag smoother timestamps
     newTimestampsMODEL1[X(ct_state)] = timestamp;
     newTimestampsMODEL2[X(ct_state)] = timestamp;
     newTimestampsFORSTER[X(ct_state)] = timestamp;
+    newTimestampsGCPLPI[X(ct_state)] = timestamp;
+    newTimestampsLCPLPI2[X(ct_state)] = timestamp;
 
     // Clear all old imu messages (keep the last two)
     imu_times.erase(imu_times.begin(), imu_times.end()-1);
