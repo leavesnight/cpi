@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp tf pcl_ros std_msgs geometry_msgs
 find_package(PCL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem thread date_time timer)
 find_package(GTSAM REQUIRED) # source: https://bitbucket.org/gtborg/gtsam/
+find_package(TBB 4.4 COMPONENTS tbb tbbmalloc)
 #find_package(MKL REQUIRED) # intel MKL library
 
 # Describe catkin project
@@ -53,6 +54,7 @@ include_directories(
     ${EIGEN3_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
+    ${TBB_INCLUDE_DIRS}
     #${MKL_INCLUDE_DIRS}
     ${GTSAM_INCLUDE_DIR}
     ${catkin_INCLUDE_DIRS}
@@ -63,10 +65,12 @@ list(APPEND thirdparty_libraries
     ${Boost_LIBRARIES}
     ${OpenCV_LIBRARIES}
     ${PCL_LIBRARIES}
+    ${TBB_LIBRARIES}
     #${MKL_LIBRARIES}
     gtsam
     gtsam_unstable
     ${catkin_LIBRARIES}
+    #"/usr/lib/x86_64-linux-gnu/libtbb.so.2"
 )
 
 
